@@ -2,24 +2,18 @@
 const express = require('express');
 const { Pool } = require('pg');
 const bodyParser = require('body-parser');
-const cors = require('cors'); // Import the cors package
+const cors = require('cors'); 
 
 const app = express();
 
-// Enable CORS for all routes
+
 app.use(cors());
 
 app.use(bodyParser.json());
 
-// Database connection parameters - update these with your actual credentials
-/*const dbConfig = {
-    user: 'postgres',
-    host: 'localhost',
-    database: 'postgres',
-    password: '1234',
-    port: 5432,
-};*/
 
+
+// Database connection 
 const dbConfig = {
     user: process.env.DB_USER || 'postgres',
     host: process.env.DB_HOST || 'localhost',
