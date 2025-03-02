@@ -13,14 +13,14 @@ app.use(bodyParser.json());
 
 
 
-// Database connection 
 const dbConfig = {
     user: process.env.DB_USER || 'postgres',
-    host: process.env.DB_HOST || 'localhost',
+    host: process.env.DB_HOST || (process.env.DOCKER_ENV === 'true' ? 'db' : 'localhost'),
     database: process.env.DB_NAME || 'postgres',
     password: process.env.DB_PASSWORD || '1234',
-    port: process.env.DB_PORT || 5433,
+    port: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : 5432,
 };
+
 
 
 const pool = new Pool(dbConfig);
@@ -53,17 +53,15 @@ app.post('/save-ebike', async (req, res) => {
 
         const pointId = result.rows[0].id;
 
-        // Release the client back to the pool
+    
         client.release();
 
-        //Success response
         res.status(201).json({
             status: 'success',
             message: 'Point saved successfully',
             id: pointId,
         });
     } catch (error) {
-        // Handle db errors
         console.error('Database error:', error);
         res.status(500).json({
             status: 'error',
@@ -73,8 +71,53 @@ app.post('/save-ebike', async (req, res) => {
     }
 });
 
+
+app.get('/get-ebikes', async (req, res) => {
+    try {
+        const client = await pool.connect();
+        const sql = `SELECT id, ST_X(geom) AS longitude, ST_Y(geom) AS latitude FROM e_bikes`;
+        const result = await client.query(sql);
+        client.release();
+
+        res.status(200).json({
+            status: 'success',
+            data: result.rows,
+        });
+    } catch (error) {
+        console.error('Database error:', error);
+        res.status(500).json({
+            status: 'error',
+            message: 'Database error',
+            error: error.message,
+        });
+    }
+});
+
+
 // Start the server
 const PORT = 3000;
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
+
+
+
+const initDb = async () => {
+    const client = await pool.connect();
+    try {
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS e_bikes (
+                id SERIAL PRIMARY KEY,
+                geom GEOMETRY(Point, 4326)
+            );
+        `);
+        console.log("Table e_bikes is ready");
+    } catch (error) {
+        console.error("Error creating table:", error);
+    } finally {
+        client.release();
+    }
+};
+
+// Run table creation at startup
+initDb();
